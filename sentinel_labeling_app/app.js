@@ -2,7 +2,7 @@
   "use strict";
 
   const YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
-  const DATA_URL = "../validation_reference_900_v1/points/interp_sheet_900.csv";
+  const DATA_URL = "../validation_reference_900_v1/points/interp_sheet_900_v3.csv";
   const STAC_SEARCH_URL = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
   const DATA_TILEJSON_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json";
   const DATA_POINT_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/point";
@@ -74,7 +74,7 @@
     filteredIndices: [],
     query: "",
     unlabeledOnly: false,
-    fileName: "interp_sheet_900.csv",
+    fileName: "interp_sheet_900_v3.csv",
     storageKey: "",
     map: null,
     falseColorMap: null,
@@ -391,7 +391,7 @@
       const response = await fetch(DATA_URL, { cache: "no-store" });
       if (!response.ok) throw new Error(`CSV 请求失败（${response.status}）`);
       const text = await response.text();
-      applyParsedData(parseCsv(text), "interp_sheet_900.csv");
+      applyParsedData(parseCsv(text), "interp_sheet_900_v3.csv");
       showToast("900 个参考点已载入，可以开始判读");
     } catch (error) {
       console.error(error);
@@ -401,7 +401,7 @@
           <strong>无法自动读取判读表</strong>
           <span>请点击右上角“载入 CSV”，或使用本目录的本地 HTTP 服务打开。</span>
         </div>`;
-      showToast("自动载入失败，请手动选择 interp_sheet_900.csv");
+      showToast("自动载入失败，请手动选择 interp_sheet_900_v3.csv");
     }
   }
 
@@ -428,7 +428,7 @@
   function applyParsedData(parsed, fileName) {
     state.headers = parsed.headers;
     state.rows = parsed.rows;
-    state.fileName = fileName || "interp_sheet_900.csv";
+    state.fileName = fileName || "interp_sheet_900_v3.csv";
     state.storageKey = getStorageKey(state.fileName, state.headers);
     state.activeIndex = 0;
     state.activeYear = 2025;

@@ -1,6 +1,6 @@
 # Sentinel Fielddesk：参考样本辅助判读台
 
-这是面向 `validation_reference_900_v1/points/interp_sheet_900.csv` 的浏览器判读工具。它按点位加载 2019–2025 年 Sentinel-2 L2A 年度优选场景，并在中间提供 RGB、近红外假彩色、高清历史参考和 NDVI 四联动视图；四个窗口的中心、缩放、拖动和年份保持同步。左侧队列完整显示当前筛选范围内的点位，四个地图用低透明度小点显示全量位置，当前点以透明十字准星标记；右侧“年度判别”栏上方同步显示当前点的光谱辅助参数。
+这是面向 `validation_reference_900_v1/points/interp_sheet_900_v3.csv` 的浏览器判读工具。它按点位加载 2019–2025 年 Sentinel-2 L2A 年度优选场景，并在中间提供 RGB、近红外假彩色、高清历史参考和 NDVI 四联动视图；四个窗口的中心、缩放、拖动和年份保持同步。左侧队列完整显示当前筛选范围内的点位，四个地图用低透明度小点显示全量位置，当前点以透明十字准星标记；右侧“年度判别”栏上方同步显示当前点的光谱辅助参数。
 
 ## 启动
 
@@ -21,7 +21,7 @@ Windows 下也可以直接双击 `启动判读台.bat`，它会自动启动服�
 页面启动后自动读取：
 
 ```text
-validation_reference_900_v1/points/interp_sheet_900.csv
+validation_reference_900_v1/points/interp_sheet_900_v3.csv
 ```
 
 也可以点击右上角“载入 CSV”选择另一份结构相同的判读表。系统只在浏览器 localStorage 中保存当前文件的标注，不会覆盖原始 CSV；点击“导出判读表”生成新的带日期文件。

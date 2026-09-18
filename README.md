@@ -13,7 +13,7 @@
 
 ## 样本点更新
 
-后续更新时，替换 `validation_reference_900_v1/points/interp_sheet_900.csv`，保持字段结构不变，然后提交并推送到 `main` 分支，GitHub Pages 会自动重新发布。若点位批次发生变化，建议把数据目录改成新的版本目录（例如 `validation_reference_900_v2`），并同步修改 `sentinel_labeling_app/app.js` 中的 `DATA_URL`；这样可以避免浏览器沿用上一批样本的本地标注缓存。也可以在网页底部点击“清除本机标注缓存”。
+当前线上加载的是 `validation_reference_900_v1/points/interp_sheet_900_v3.csv`。后续更新时，建议使用新的版本文件名或目录（例如 `interp_sheet_900_v4.csv`），同步修改 `sentinel_labeling_app/app.js` 中的 `DATA_URL`，保持字段结构不变，然后提交并推送到 `main` 分支，GitHub Pages 会自动重新发布；这样可以避免浏览器沿用上一批样本的本地标注缓存。也可以在网页底部点击“清除本机标注缓存”。
 
 当前样本点是公开测试数据；正式样本点发布前，请确认经纬度和属性信息可以公开。
 
