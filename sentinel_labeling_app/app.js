@@ -8,7 +8,7 @@
   const DATA_POINT_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/point";
   const WAYBACK_SEARCH_URL = "https://www.arcgis.com/sharing/rest/search";
   const WORLD_IMAGERY_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-  const STORAGE_PREFIX = "sentinel-fielddesk:v1:";
+  const STORAGE_PREFIX = "sentinel-fielddesk:v2:";
 
   const CATEGORIES = [
     {
