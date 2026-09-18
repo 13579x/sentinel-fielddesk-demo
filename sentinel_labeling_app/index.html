@@ -63,8 +63,8 @@
             <div class="dataset-card-top">
               <span class="dataset-symbol">CQ</span>
               <div>
-                <div class="dataset-name">重庆 · 六类验证样本</div>
-                <div class="dataset-file" id="datasetFileName">interp_sheet_900_v3.csv</div>
+                <div class="dataset-name">重庆 · 900点辅助判读样本</div>
+                <div class="dataset-file" id="datasetFileName">interp_sheet_900_v3_assisted.csv</div>
               </div>
             </div>
             <div class="dataset-metrics">
@@ -273,7 +273,7 @@
           <div class="interpretation-context">
             <div class="context-label">正在编辑</div>
             <div class="context-value"><span id="contextPointId">VR001</span><span class="context-separator">/</span><span id="contextYear">2025</span></div>
-            <div class="context-hint">先看影像，再选择中心像元的主导类别</div>
+            <div class="context-hint">已有类别可复核；空白年份按来源提示判读</div>
           </div>
 
           <div class="aux-panel" id="auxPanel">
@@ -330,6 +330,7 @@
               <div class="section-label">地类判别</div>
               <div class="selected-label" id="selectedLabel">尚未选择</div>
             </div>
+            <div class="selected-label-meta" id="selectedLabelMeta"></div>
             <div class="category-grid" id="categoryGrid"></div>
           </div>
 

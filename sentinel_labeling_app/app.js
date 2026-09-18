@@ -2,7 +2,8 @@
   "use strict";
 
   const YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
-  const DATA_URL = "../validation_reference_900_v1/points/interp_sheet_900_v3.csv";
+  const DATA_URL = "../validation_reference_900_v1/points/interp_sheet_900_v3_assisted.csv";
+  const DEFAULT_DATA_FILE = "interp_sheet_900_v3_assisted.csv";
   const STAC_SEARCH_URL = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
   const DATA_TILEJSON_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json";
   const DATA_POINT_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/point";
@@ -14,46 +15,65 @@
     {
       label: "林地",
       shortcut: "1",
+      code: "1",
       color: "#4eb77e",
       description: "连续乔木冠层",
     },
     {
       label: "水田",
       shortcut: "2",
+      code: "3",
       color: "#52cad1",
       description: "有水稻种植信号",
     },
     {
       label: "旱地",
       shortcut: "3",
+      code: "4",
       color: "#e7b765",
       description: "旱作或园地",
     },
     {
       label: "建设用地",
       shortcut: "4",
+      code: "5",
       color: "#f0785d",
       description: "建筑与不透水面",
     },
     {
       label: "灌草地",
       shortcut: "5",
+      code: "2",
       color: "#a7bd68",
       description: "灌丛、草坡或撂荒",
     },
     {
       label: "水域",
       shortcut: "6",
+      code: "6",
       color: "#4b8fe0",
       description: "开放水面为主",
     },
     {
       label: "不确定",
       shortcut: "7",
+      code: "0",
       color: "#b2b9b5",
       description: "证据不足或混合像元",
     },
   ];
+
+  const CODE_TO_LABEL = new Map([
+    ["0", "不确定"],
+    ["1", "林地"],
+    ["2", "灌草地"],
+    ["3", "水田"],
+    ["4", "旱地"],
+    ["5", "建设用地"],
+    ["6", "水域"],
+  ]);
+
+  const LABEL_TO_CODE = new Map(CATEGORIES.map((category) => [category.label, category.code]));
 
   const LABEL_ALIASES = new Map([
     ["稻作耕地", "水田"],
@@ -74,7 +94,9 @@
     filteredIndices: [],
     query: "",
     unlabeledOnly: false,
-    fileName: "interp_sheet_900_v3.csv",
+    fileName: DEFAULT_DATA_FILE,
+    labelFormat: "text",
+    baseRows: [],
     storageKey: "",
     map: null,
     falseColorMap: null,
@@ -183,6 +205,7 @@
       "contextPointId",
       "contextYear",
       "selectedLabel",
+      "selectedLabelMeta",
       "categoryGrid",
       "uncertainReason",
       "pointNote",
@@ -391,8 +414,8 @@
       const response = await fetch(DATA_URL, { cache: "no-store" });
       if (!response.ok) throw new Error(`CSV 请求失败（${response.status}）`);
       const text = await response.text();
-      applyParsedData(parseCsv(text), "interp_sheet_900_v3.csv");
-      showToast("900 个参考点已载入，可以开始判读");
+      applyParsedData(parseCsv(text), DEFAULT_DATA_FILE);
+      showToast("900 个辅助判读点已载入，已有类别可复核");
     } catch (error) {
       console.error(error);
       setSaveStatus("CSV 未载入", "error");
@@ -401,7 +424,7 @@
           <strong>无法自动读取判读表</strong>
           <span>请点击右上角“载入 CSV”，或使用本目录的本地 HTTP 服务打开。</span>
         </div>`;
-      showToast("自动载入失败，请手动选择 interp_sheet_900_v3.csv");
+      showToast(`自动载入失败，请手动选择 ${DEFAULT_DATA_FILE}`);
     }
   }
 
@@ -428,7 +451,9 @@
   function applyParsedData(parsed, fileName) {
     state.headers = parsed.headers;
     state.rows = parsed.rows;
-    state.fileName = fileName || "interp_sheet_900_v3.csv";
+    state.baseRows = parsed.rows.map((row) => ({ ...row }));
+    state.labelFormat = detectLabelFormat(state.rows, state.headers);
+    state.fileName = fileName || DEFAULT_DATA_FILE;
     state.storageKey = getStorageKey(state.fileName, state.headers);
     state.activeIndex = 0;
     state.activeYear = 2025;
@@ -565,7 +590,7 @@
     const indices = state.rows.reduce((matches, row, index) => {
       const id = String(row.point_id || "").toLowerCase();
       const matchesQuery = !query || id.includes(query);
-      const matchesUnlabeled = !state.unlabeledOnly || !getCanonicalLabel(row[getLabelField(state.activeYear)]);
+      const matchesUnlabeled = !state.unlabeledOnly || isPendingManual(row, state.activeYear);
       if (matchesQuery && matchesUnlabeled) matches.push(index);
       return matches;
     }, []);
@@ -600,14 +625,17 @@
   function renderYearStrip() {
     if (!els.yearStrip) return;
     els.yearStrip.innerHTML = YEARS.map((year) => {
-      const label = getActiveRow()?.[getLabelField(year)];
+      const row = getActiveRow();
+      const label = row?.[getLabelField(year)];
       const isDone = Boolean(getCanonicalLabel(label));
+      const isDeferred = !isDone && isCopy2021(row, year);
       const activeClass = year === state.activeYear ? " is-active" : "";
       const doneClass = isDone ? " is-done" : "";
+      const deferredClass = isDeferred ? " is-deferred" : "";
       return `
-        <button class="year-tab${activeClass}${doneClass}" data-year="${year}" type="button" role="tab" aria-selected="${year === state.activeYear}">
+        <button class="year-tab${activeClass}${doneClass}${deferredClass}" data-year="${year}" type="button" role="tab" aria-selected="${year === state.activeYear}">
           <span class="year-tab-year">${year}</span>
-          <span class="year-tab-status">${isDone ? "已判" : "待判"}</span>
+          <span class="year-tab-status">${isDone ? "已判" : isDeferred ? "待复制" : "待判"}</span>
         </button>`;
     }).join("");
   }
@@ -615,22 +643,28 @@
   function renderHistoryYears() {
     if (!els.historyYears) return;
     els.historyYears.innerHTML = YEARS.map((year) => {
-      const label = getActiveRow()?.[getLabelField(year)];
+      const row = getActiveRow();
+      const label = row?.[getLabelField(year)];
       const activeClass = year === state.activeYear ? " is-active" : "";
       const doneClass = getCanonicalLabel(label) ? " is-labeled" : "";
-      return `<button class="history-year${activeClass}${doneClass}" data-year="${year}" type="button">${year}</button>`;
+      const deferredClass = !getCanonicalLabel(label) && isCopy2021(row, year) ? " is-deferred" : "";
+      return `<button class="history-year${activeClass}${doneClass}${deferredClass}" data-year="${year}" type="button">${year}</button>`;
     }).join("");
   }
 
   function renderInspector() {
     const row = getActiveRow();
-    const label = row ? getCanonicalLabel(row[getLabelField(state.activeYear)]) : "";
+    const labelField = getLabelField(state.activeYear);
+    const rawLabel = row?.[labelField] || "";
+    const label = row ? getCanonicalLabel(rawLabel) : "";
 
     els.yearStamp.textContent = state.activeYear;
     els.contextPointId.textContent = row?.point_id || "—";
     els.contextYear.textContent = state.activeYear;
     els.selectedLabel.textContent = label || "尚未选择";
     els.selectedLabel.classList.toggle("has-value", Boolean(label));
+    els.selectedLabelMeta.textContent = getLabelMeta(row, state.activeYear, label, rawLabel);
+    els.selectedLabelMeta.dataset.state = label ? "labeled" : isPendingManual(row, state.activeYear) ? "pending" : "deferred";
 
     els.categoryGrid.querySelectorAll(".category-button").forEach((button) => {
       button.classList.toggle("is-selected", button.dataset.label === label);
@@ -707,7 +741,7 @@
   function setCurrentLabel(label) {
     const row = getActiveRow();
     if (!row || !CATEGORIES.some((category) => category.label === label)) return;
-    row[getLabelField(state.activeYear)] = label;
+    row[getLabelField(state.activeYear)] = state.labelFormat === "code" ? LABEL_TO_CODE.get(label) : label;
     queuePersist();
     renderDatasetStats();
     renderQueue();
@@ -725,7 +759,7 @@
       const candidate = (state.activeIndex + direction * offset + total) % total;
       const row = state.rows[candidate];
       const matchesQuery = !query || String(row.point_id || "").toLowerCase().includes(query);
-      const matchesLabel = !unlabeledOnly || !getCanonicalLabel(row[getLabelField(state.activeYear)]);
+      const matchesLabel = !unlabeledOnly || isPendingManual(row, state.activeYear);
       if (matchesQuery && matchesLabel) {
         selectPoint(candidate);
         return;
@@ -1320,13 +1354,7 @@
     if (!confirmed) return;
     try {
       localStorage.removeItem(state.storageKey);
-      state.rows.forEach((row) => {
-        state.headers.forEach((header) => {
-          if (/^label_\d{4}$/.test(header) || ["orchard", "abandoned", "construction", "uncertain_reason", "note"].includes(header)) {
-            row[header] = "";
-          }
-        });
-      });
+      state.rows = state.baseRows.map((row) => ({ ...row }));
       renderAll();
       showToast("本机标注缓存已清除");
       setSaveStatus("缓存已清除", "ready");
@@ -1344,10 +1372,38 @@
     return `label_${year}`;
   }
 
+  function detectLabelFormat(rows, headers) {
+    const labelHeaders = headers.filter((header) => /^label_\d{4}$/.test(header));
+    const values = rows.flatMap((row) => labelHeaders.map((header) => String(row[header] ?? "").trim())).filter(Boolean);
+    return values.length > 0 && values.every((value) => CODE_TO_LABEL.has(value)) ? "code" : "text";
+  }
+
   function getCanonicalLabel(value) {
-    const label = String(value || "").trim();
+    const label = String(value ?? "").trim();
     if (!label) return "";
+    if (CODE_TO_LABEL.has(label)) return CODE_TO_LABEL.get(label);
     return LABEL_ALIASES.get(label) || (CATEGORIES.some((category) => category.label === label) ? label : label);
+  }
+
+  function isCopy2021(row, year) {
+    return String(row?.[`src_${year}`] ?? "").trim() === "copy2021";
+  }
+
+  function isPendingManual(row, year) {
+    if (!row || getCanonicalLabel(row[getLabelField(year)])) return false;
+    return !isCopy2021(row, year);
+  }
+
+  function getLabelMeta(row, year, label, rawLabel) {
+    if (!row) return "";
+    const source = String(row[`src_${year}`] ?? "").trim();
+    const mode = String(row.mode ?? "").trim();
+    const codeText = CODE_TO_LABEL.has(String(rawLabel).trim()) ? ` · 码 ${String(rawLabel).trim()}` : "";
+    if (mode === "audit") return label ? `盲审 · 已填${codeText}` : "盲审 · 当前年份需要独立判读";
+    if (source === "auto") return label ? `自动预填 · 可复核${codeText}` : "自动预填缺失 · 请检查";
+    if (source === "copy2021") return label ? `已填 · 复制 2021${codeText}` : "待 2021 年判读后复制";
+    if (source === "manual") return label ? `人工判读 · 已填写${codeText}` : "需要人工判读";
+    return label ? `已填写${codeText}` : "待判";
   }
 
   function isFlagSet(value) {
