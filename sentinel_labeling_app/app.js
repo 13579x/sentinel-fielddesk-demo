@@ -276,6 +276,14 @@
     state.highresBaseLayer = window.L.tileLayer(WORLD_IMAGERY_URL, referenceLayerOptions).addTo(state.highresMap);
     state.ndviBaseLayer = window.L.tileLayer(WORLD_IMAGERY_URL, referenceLayerOptions).addTo(state.ndviMap);
     attachSynchronizedMaps();
+    window.addEventListener("resize", refreshMapSizes, { passive: true });
+    window.addEventListener("orientationchange", refreshMapSizes, { passive: true });
+  }
+
+  function refreshMapSizes() {
+    window.requestAnimationFrame(() => {
+      getSynchronizedMaps().forEach((map) => map.invalidateSize({ pan: false, animate: false }));
+    });
   }
 
   function getSynchronizedMaps() {
