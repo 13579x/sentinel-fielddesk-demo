@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c151e" />
+    <title>Sentinel Fielddesk · 参考样本判读台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">
+            <span class="brand-mark-orbit"></span>
+            <span class="brand-mark-core"></span>
+          </div>
+          <div>
+            <div class="eyebrow">REMOTE SENSING / REFERENCE DESK</div>
+            <h1>Sentinel <span>Fielddesk</span></h1>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="sync-indicator" id="saveStatus" title="标注会自动保存到当前浏览器">
+            <span class="status-dot"></span>
+            <span id="saveStatusText">等待加载样本</span>
+          </div>
+          <button class="button button-ghost" id="loadCsvButton" type="button">
+            <span class="button-icon">↥</span>
+            载入 CSV
+          </button>
+          <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
+          <button class="button button-primary" id="exportButton" type="button">
+            <span class="button-icon">↓</span>
+            导出判读表
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar panel-shell">
+          <div class="sidebar-heading">
+            <div>
+              <div class="section-kicker">REFERENCE BATCH</div>
+              <h2>点位队列</h2>
+            </div>
+            <div class="batch-badge" id="batchBadge">900</div>
+          </div>
+
+          <div class="dataset-card">
+            <div class="dataset-card-top">
+              <span class="dataset-symbol">CQ</span>
+              <div>
+                <div class="dataset-name">重庆 · 六类验证样本</div>
+                <div class="dataset-file" id="datasetFileName">interp_sheet_900.csv</div>
+              </div>
+            </div>
+            <div class="dataset-metrics">
+              <div>
+                <strong id="totalCount">—</strong>
+                <span>正式点</span>
+              </div>
+              <div>
+                <strong id="currentYearCount">—</strong>
+                <span id="currentYearMetricLabel">2025 已判</span>
+              </div>
+              <div>
+                <strong id="allYearCount">—</strong>
+                <span>年度标签</span>
+              </div>
+            </div>
+            <div class="progress-track" aria-label="当前年份完成进度">
+              <div class="progress-fill" id="yearProgressFill"></div>
+            </div>
+            <div class="progress-caption">
+              <span id="progressCaption">尚未载入数据</span>
+              <span class="mono" id="progressPercent">0%</span>
+            </div>
+          </div>
+
+          <div class="queue-tools">
+            <label class="search-box" for="pointSearch">
+              <span aria-hidden="true">⌕</span>
+              <input id="pointSearch" type="search" placeholder="搜索点号，如 VR128" autocomplete="off" />
+              <kbd>/</kbd>
+            </label>
+            <label class="toggle-row">
+              <input id="unlabeledOnly" type="checkbox" />
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span>只看当前年份未判</span>
+            </label>
+          </div>
+
+          <div class="queue-header">
+            <span id="queueResultCount">0 个点位</span>
+            <button class="text-button" id="nextUnlabeledButton" type="button">跳到未判 →</button>
+          </div>
+          <div class="queue-list" id="queueList" role="listbox" aria-label="样本点位队列"></div>
+          <div class="queue-footer">
+            <span class="queue-legend"><i class="legend-dot legend-done"></i>已判</span>
+            <span class="queue-legend"><i class="legend-dot legend-current"></i>当前</span>
+            <span class="queue-legend"><i class="legend-dot legend-empty"></i>待判</span>
+          </div>
+        </aside>
+
+        <section class="map-workspace panel-shell">
+          <div class="map-toolbar">
+            <div class="active-point-heading">
+              <span class="point-pulse" aria-hidden="true"></span>
+              <div>
+                <div class="section-kicker">ACTIVE SAMPLE</div>
+                <div class="active-point-id" id="activePointId">VR001</div>
+              </div>
+              <div class="active-point-coord mono" id="activePointCoord">—</div>
+            </div>
+            <div class="map-toolbar-actions">
+              <div class="scene-status" id="sceneStatus">
+                <span class="scene-status-icon">◌</span>
+                <span id="sceneStatusText">等待影像</span>
+              </div>
+              <button class="icon-button overview-toggle-button" id="toggleAllPointsButton" type="button" title="隐藏全部点位" aria-label="隐藏或显示全部点位" aria-pressed="true">•••</button>
+              <button class="icon-button marker-toggle-button" id="toggleMarkerButton" type="button" title="隐藏点位准星" aria-label="隐藏或显示点位准星" aria-pressed="true">◎</button>
+              <button class="icon-button" id="recenterButton" type="button" title="回到当前点位">⌖</button>
+            </div>
+          </div>
+
+          <div class="year-strip" id="yearStrip" role="tablist" aria-label="影像年份">
+            <!-- 年份由 app.js 渲染 -->
+          </div>
+
+          <div class="map-card map-card-split">
+            <div class="dual-map-grid">
+              <div class="map-pane map-pane-rgb">
+                <div class="map-pane-label">
+                  <span class="pane-accent pane-accent-sentinel"></span>
+                  <span>10 m / SENTINEL-2 RGB</span>
+                  <small><span data-map-year>2025</span> · 真彩色</small>
+                </div>
+                <div id="mapSentinel" class="leaflet-map" aria-label="10 米 Sentinel-2 真彩色影像地图"></div>
+                <div class="pane-overlay pane-overlay-top-left">
+                  <div class="map-chip"><span class="map-chip-crosshair">＋</span>中心像元</div>
+                  <div class="map-chip map-chip-muted" id="mapZoomHint">年度 RGB · 10 m</div>
+                </div>
+                <div class="pane-overlay pane-overlay-bottom-right">
+                  <div class="north-arrow" aria-label="北方向">N<span>↑</span></div>
+                </div>
+              </div>
+
+              <div class="map-pane map-pane-falsecolor">
+                <div class="map-pane-label">
+                  <span class="pane-accent pane-accent-falsecolor"></span>
+                  <span>FALSE COLOR / NIR-R-G</span>
+                  <small><span data-map-year>2025</span> · 植被增强</small>
+                </div>
+                <div id="mapFalseColor" class="leaflet-map" aria-label="Sentinel-2 近红外假彩色影像地图"></div>
+                <div class="pane-overlay pane-overlay-top-left">
+                  <div class="map-chip map-chip-falsecolor">NIR · R · G</div>
+                </div>
+                <div class="pane-overlay pane-overlay-bottom-right">
+                  <div class="north-arrow" aria-label="北方向">N<span>↑</span></div>
+                </div>
+              </div>
+
+              <div class="map-pane map-pane-highres">
+                <div class="map-pane-label">
+                  <span class="pane-accent pane-accent-highres"></span>
+                  <span>高清历史参考 / ESRI WAYBACK</span>
+                  <small id="highresLayerMeta"><span data-map-year>2025</span> · <span id="highresLayerStatus">当前高清底图</span></small>
+                </div>
+                <div id="mapHighres" class="leaflet-map" aria-label="高清历史参考卫星影像地图"></div>
+                <div class="pane-overlay pane-overlay-top-left">
+                  <div class="map-chip map-chip-highres">高清纹理 · Z23</div>
+                </div>
+                <div class="pane-overlay pane-overlay-bottom-right">
+                  <div class="north-arrow" aria-label="北方向">N<span>↑</span></div>
+                </div>
+              </div>
+
+              <div class="map-pane map-pane-ndvi">
+                <div class="map-pane-label">
+                  <span class="pane-accent pane-accent-ndvi"></span>
+                  <span>NDVI / VEGETATION INDEX</span>
+                  <small><span data-map-year>2025</span> · B08/B04</small>
+                </div>
+                <div id="mapNdvi" class="leaflet-map" aria-label="Sentinel-2 NDVI 植被指数地图"></div>
+                <div class="pane-overlay pane-overlay-top-left">
+                  <div class="map-chip map-chip-ndvi">显示 0–1</div>
+                </div>
+                <div class="pane-overlay pane-overlay-bottom-right">
+                  <div class="ndvi-legend" aria-label="NDVI 图例">
+                    <div class="ndvi-gradient"></div>
+                    <div class="ndvi-legend-labels"><span>低 0</span><span>高 1</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="map-sync-bar">
+              <div class="map-sync-coord">
+                <span class="map-sync-icon">⌖</span>
+                <span class="map-coordinates mono" id="mapCoordinates">—</span>
+              </div>
+              <div class="map-sync-meta">
+                <span class="map-source" id="mapSource">RGB · 假彩色 · 高清历史参考 · NDVI</span>
+                <span class="map-sync-status" id="mapSyncStatus"><i></i>中心、缩放、拖动已同步</span>
+              </div>
+            </div>
+            <div class="map-loading" id="mapLoading" hidden>
+              <div class="loading-orbit"></div>
+              <div>
+                <strong>正在检索年度辅助影像</strong>
+                <span>Sentinel-2 · Wayback · RGB / 假彩色 / NDVI…</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="scene-strip">
+            <div class="scene-preview-wrap">
+              <div class="scene-preview-placeholder" id="scenePreviewPlaceholder">
+                <span>SCENE<br />PREVIEW</span>
+              </div>
+              <img id="scenePreview" alt="当前 Sentinel-2 场景预览" hidden />
+            </div>
+            <div class="scene-info">
+              <div class="section-kicker">SELECTED SCENE</div>
+              <div class="scene-date" id="sceneDate">尚未加载</div>
+              <div class="scene-subline" id="sceneSubline">选择年份后加载一景代表性影像</div>
+              <div class="scene-tags">
+                <span class="scene-tag" id="sceneCloudTag">云量 —</span>
+                <span class="scene-tag" id="sceneTileTag">Sentinel-2 L2A</span>
+              </div>
+            </div>
+            <div class="scene-note">
+              <span class="scene-note-mark">i</span>
+              <span>四窗随当前年份同步：RGB、假彩色和 NDVI 来自同一景 Sentinel-2；高清窗优先使用对应年份的 Esri Wayback 版本，可放大至 Z23；NDVI 色带固定 0–1，低于 0 的值按 0 显示。</span>
+            </div>
+          </div>
+
+          <div class="history-band">
+            <div class="history-heading">
+              <div class="section-kicker">SEVEN-YEAR TRACE</div>
+              <span>当前点位年度标签</span>
+            </div>
+            <div class="history-years" id="historyYears"></div>
+            <div class="keyboard-hints">
+              <span><kbd>1–7</kbd> / <kbd>U</kbd> 选类</span>
+              <span><kbd>← →</kbd> 换年</span>
+              <span><kbd>N</kbd> 下一点</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="inspector panel-shell">
+          <div class="inspector-topline">
+            <div>
+              <div class="section-kicker">MANUAL INTERPRETATION</div>
+              <h2>年度判别</h2>
+            </div>
+            <div class="year-stamp" id="yearStamp">2025</div>
+          </div>
+
+          <div class="interpretation-context">
+            <div class="context-label">正在编辑</div>
+            <div class="context-value"><span id="contextPointId">VR001</span><span class="context-separator">/</span><span id="contextYear">2025</span></div>
+            <div class="context-hint">先看影像，再选择中心像元的主导类别</div>
+          </div>
+
+          <div class="aux-panel" id="auxPanel">
+            <div class="aux-panel-heading">
+              <div>
+                <div class="section-kicker">SPECTRAL CUES</div>
+                <div class="aux-panel-title">当前点指数与地类辅助判读</div>
+              </div>
+              <span class="aux-status" id="auxStatus">等待影像</span>
+            </div>
+            <div class="aux-bias-card" id="auxBiasCard" data-bias="loading" aria-live="polite">
+              <span class="aux-bias-kicker">辅助判读结果</span>
+              <strong id="auxBias">等待参数</strong>
+              <span class="aux-bias-caption">根据当前点光谱指数给出快速偏向，最终以四窗影像复核。</span>
+            </div>
+            <div class="aux-grid">
+              <div class="aux-metric aux-metric-ndvi">
+                <span>NDVI · 植被</span>
+                <strong id="auxNdvi">—</strong>
+                <code class="aux-formula">(B08-B04)/(B08+B04)</code>
+                <small>显示范围 0–1，负值按 0</small>
+              </div>
+              <div class="aux-metric aux-metric-ndwi">
+                <span>NDWI · 水体</span>
+                <strong id="auxNdwi">—</strong>
+                <code class="aux-formula">(B03-B08)/(B03+B08)</code>
+                <small>较高值辅助识别水域</small>
+              </div>
+              <div class="aux-metric aux-metric-ndbi">
+                <span>NDBI · 建设用地</span>
+                <strong id="auxNdbi">—</strong>
+                <code class="aux-formula">(B11-B08)/(B11+B08)</code>
+                <small>较高值辅助识别建设用地</small>
+              </div>
+              <div class="aux-metric aux-metric-ndmi">
+                <span>NDMI · 植物水分</span>
+                <strong id="auxNdmi">—</strong>
+                <code class="aux-formula">(B08-B11)/(B08+B11)</code>
+                <small>较高值辅助判断植被水分</small>
+              </div>
+            </div>
+            <div class="aux-band-strip" aria-label="当前点原始波段值">
+              <span class="aux-band-title">RAW BANDS</span>
+              <span class="aux-band-value">B03 <strong id="auxB03">—</strong></span>
+              <span class="aux-band-value">B04 <strong id="auxB04">—</strong></span>
+              <span class="aux-band-value">B08 <strong id="auxB08">—</strong></span>
+              <span class="aux-band-value">B11 <strong id="auxB11">—</strong></span>
+            </div>
+            <div class="aux-hint" id="auxHint">选择点位和年份后读取光谱参数。</div>
+          </div>
+
+          <div class="inspector-section category-section">
+            <div class="section-row">
+              <div class="section-label">地类判别</div>
+              <div class="selected-label" id="selectedLabel">尚未选择</div>
+            </div>
+            <div class="category-grid" id="categoryGrid"></div>
+          </div>
+
+          <div class="inspector-section flag-section">
+            <div class="section-label">辅助标记 <span class="optional">可选</span></div>
+            <div class="flag-grid">
+              <label class="flag-checkbox"><input type="checkbox" data-flag="orchard" /><span class="checkmark">✓</span><span>果园 / 茶园</span></label>
+              <label class="flag-checkbox"><input type="checkbox" data-flag="abandoned" /><span class="checkmark">✓</span><span>疑似撂荒</span></label>
+              <label class="flag-checkbox"><input type="checkbox" data-flag="construction" /><span class="checkmark">✓</span><span>在建 / 平整场地</span></label>
+            </div>
+          </div>
+
+          <div class="inspector-section text-section">
+            <label class="field-label" for="uncertainReason">不确定原因 <span class="optional">可选</span></label>
+            <input class="text-input" id="uncertainReason" type="text" placeholder="例如：云影遮挡、混合像元、时相不足" />
+            <label class="field-label" for="pointNote">点位备注 <span class="optional">可选</span></label>
+            <textarea class="text-area" id="pointNote" rows="3" placeholder="记录跨年份变化、边界情况或替换建议…"></textarea>
+          </div>
+
+          <div class="inspector-footer">
+            <button class="button button-save" id="saveNextButton" type="button">
+              <span>保存并进入下一点</span>
+              <span class="save-arrow">→</span>
+            </button>
+            <div class="secondary-actions">
+              <button class="text-button" id="previousButton" type="button">← 上一点</button>
+              <button class="text-button" id="nextButton" type="button">下一点 →</button>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="app-footer">
+        <span>Sentinel-2 L2A · RGB / NIR-R-G / NDVI · Microsoft Planetary Computer</span>
+        <span class="footer-divider">/</span>
+        <span>高清参考 · Esri World Imagery Wayback</span>
+        <span class="footer-divider">/</span>
+        <span>本地标注自动保存 · 原始 CSV 不会被覆盖</span>
+        <button class="footer-reset" id="clearLocalButton" type="button">清除本机标注缓存</button>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
