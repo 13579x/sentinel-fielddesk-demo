@@ -1379,7 +1379,7 @@
     els.auxStatus.classList.add(mode === "single" ? "is-loading" : "is-ready");
     els.auxChartYear.textContent = `${state.activeYear} 年 · ${validSeries.length} 个时相`;
     els.auxChartEmpty.hidden = true;
-    const chartDomain = renderAuxiliaryChart(validSeries);
+    renderAuxiliaryChart(validSeries);
 
     const sample = focusSample || validSeries.at(-1);
     const bias = inferAuxiliaryBias(sample);
@@ -1387,7 +1387,7 @@
     els.auxBias.textContent = `偏向：${bias.label}`;
     els.auxBiasCaption.textContent = `${sample.dateLabel} 当前场景 · NDVI ${formatIndex(sample.ndvi)} · NDWI ${formatIndex(sample.ndwi)} · LSWI ${formatIndex(sample.lswi)} · NDBI ${formatIndex(sample.ndbi)}`;
     const dates = `${validSeries[0].dateLabel}—${validSeries.at(-1).dateLabel}`;
-    els.auxChartSummary.textContent = `${dates} · 纵轴自动 ${formatAxisValue(chartDomain.min)}～${formatAxisValue(chartDomain.max)} · ${validSeries.length} 个有效时相 · NDBI 保留为当前场景建设用地参考`;
+    els.auxChartSummary.textContent = `${dates} · 纵轴固定 -1～1（NDVI 实际范围 0～1） · ${validSeries.length} 个有效时相 · NDBI 保留为当前场景建设用地参考`;
     els.auxHint.textContent = "NDVI=(B08-B04)/(B08+B04)，显示 0–1 · NDWI=(B03-B08)/(B03+B08) · LSWI=(B08-B11)/(B08+B11)";
   }
 
@@ -1398,25 +1398,8 @@
     const margin = { top: 15, right: 12, bottom: 36, left: 50 };
     const plotWidth = width - margin.left - margin.right;
     const plotHeight = height - margin.top - margin.bottom;
-    const indexValues = series
-      .flatMap((sample) => [sample.ndvi, sample.ndwi, sample.lswi])
-      .filter((value) => Number.isFinite(value));
-    const rawMin = Math.min(...indexValues);
-    const rawMax = Math.max(...indexValues);
-    const rawSpan = Math.max(rawMax - rawMin, 0.001);
-    const padding = Math.max(rawSpan * 0.18, 0.04);
-    let domainMin = Math.max(-1, rawMin - padding);
-    let domainMax = Math.min(1, rawMax + padding);
-    const minimumSpan = 0.2;
-    if (domainMax - domainMin < minimumSpan) {
-      const center = (rawMin + rawMax) / 2;
-      domainMin = Math.max(-1, center - minimumSpan / 2);
-      domainMax = Math.min(1, center + minimumSpan / 2);
-      if (domainMax - domainMin < minimumSpan) {
-        if (domainMin <= -1) domainMax = Math.min(1, domainMin + minimumSpan);
-        else domainMin = Math.max(-1, domainMax - minimumSpan);
-      }
-    }
+    const domainMin = -1;
+    const domainMax = 1;
     const domainSpan = domainMax - domainMin;
     const x = (index) => series.length === 1
       ? margin.left + plotWidth / 2
