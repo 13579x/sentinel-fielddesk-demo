@@ -279,50 +279,32 @@
           <div class="aux-panel" id="auxPanel">
             <div class="aux-panel-heading">
               <div>
-                <div class="section-kicker">SPECTRAL CUES</div>
-                <div class="aux-panel-title">当前点指数与地类辅助判读</div>
+                <div class="section-kicker">SEASONAL PROFILE</div>
+                <div class="aux-panel-title">当前点指数时序与地类辅助判读</div>
               </div>
               <span class="aux-status" id="auxStatus">等待影像</span>
             </div>
             <div class="aux-bias-card" id="auxBiasCard" data-bias="loading" aria-live="polite">
               <span class="aux-bias-kicker">辅助判读结果</span>
               <strong id="auxBias">等待参数</strong>
-              <span class="aux-bias-caption">根据当前点光谱指数给出快速偏向，最终以四窗影像复核。</span>
+              <span class="aux-bias-caption" id="auxBiasCaption">根据当前点时序指数给出快速偏向，最终以四窗影像复核。</span>
             </div>
-            <div class="aux-grid">
-              <div class="aux-metric aux-metric-ndvi">
-                <span>NDVI · 植被</span>
-                <strong id="auxNdvi">—</strong>
-                <code class="aux-formula">(B08-B04)/(B08+B04)</code>
-                <small>显示范围 0–1，负值按 0</small>
+            <div class="aux-chart-card">
+              <div class="aux-chart-toolbar">
+                <span class="aux-chart-year" id="auxChartYear">2025 年</span>
+                <div class="aux-chart-legend" aria-label="指数图例">
+                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndvi"></i>NDVI</span>
+                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndwi"></i>NDWI</span>
+                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-lswi"></i>LSWI</span>
+                </div>
               </div>
-              <div class="aux-metric aux-metric-ndwi">
-                <span>NDWI · 水体</span>
-                <strong id="auxNdwi">—</strong>
-                <code class="aux-formula">(B03-B08)/(B03+B08)</code>
-                <small>较高值辅助识别水域</small>
+              <div class="aux-chart-wrap">
+                <svg id="auxChart" viewBox="0 0 640 238" role="img" aria-label="当前点指数时序曲线"></svg>
+                <div class="aux-chart-empty" id="auxChartEmpty">选择点位和年份后读取时序参数。</div>
               </div>
-              <div class="aux-metric aux-metric-ndbi">
-                <span>NDBI · 建设用地</span>
-                <strong id="auxNdbi">—</strong>
-                <code class="aux-formula">(B11-B08)/(B11+B08)</code>
-                <small>较高值辅助识别建设用地</small>
-              </div>
-              <div class="aux-metric aux-metric-ndmi">
-                <span>NDMI · 植物水分</span>
-                <strong id="auxNdmi">—</strong>
-                <code class="aux-formula">(B08-B11)/(B08+B11)</code>
-                <small>较高值辅助判断植被水分</small>
-              </div>
+              <div class="aux-chart-summary" id="auxChartSummary">NDVI / NDWI / LSWI 时序等待加载</div>
             </div>
-            <div class="aux-band-strip" aria-label="当前点原始波段值">
-              <span class="aux-band-title">RAW BANDS</span>
-              <span class="aux-band-value">B03 <strong id="auxB03">—</strong></span>
-              <span class="aux-band-value">B04 <strong id="auxB04">—</strong></span>
-              <span class="aux-band-value">B08 <strong id="auxB08">—</strong></span>
-              <span class="aux-band-value">B11 <strong id="auxB11">—</strong></span>
-            </div>
-            <div class="aux-hint" id="auxHint">选择点位和年份后读取光谱参数。</div>
+            <div class="aux-hint" id="auxHint">NDVI=(B08-B04)/(B08+B04) · NDWI=(B03-B08)/(B03+B08) · LSWI=(B08-B11)/(B08+B11)</div>
           </div>
 
           <div class="inspector-section category-section">

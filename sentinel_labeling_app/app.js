@@ -122,6 +122,7 @@
     allPointsVisible: true,
     syncingMaps: false,
     sceneCache: new Map(),
+    auxSeriesCache: new Map(),
     waybackCache: new Map(),
     requestToken: 0,
     toastTimer: null,
@@ -177,17 +178,14 @@
       "mapHighres",
       "mapNdvi",
       "auxStatus",
-      "auxNdvi",
-      "auxNdwi",
-      "auxNdbi",
-      "auxNdmi",
       "auxBiasCard",
       "auxBias",
+      "auxBiasCaption",
+      "auxChartYear",
+      "auxChart",
+      "auxChartEmpty",
+      "auxChartSummary",
       "auxHint",
-      "auxB03",
-      "auxB04",
-      "auxB08",
-      "auxB11",
       "mapCoordinates",
       "mapSource",
       "mapSyncStatus",
@@ -890,7 +888,7 @@
       const scene = state.sceneCache.get(cacheKey) || await queryBestScene(lon, lat, year);
       if (token !== state.requestToken) return;
       state.sceneCache.set(cacheKey, scene);
-      applyScene(scene, lat, lon);
+      applyScene(scene, lat, lon, token);
     } catch (error) {
       if (token !== state.requestToken) return;
       setSceneLoading(false);
@@ -1073,7 +1071,7 @@
     }
   }
 
-  function applyScene(scene, lat, lon) {
+  function applyScene(scene, lat, lon, token) {
     const tileUrl = scene.tileJson?.tiles?.[0] || "";
     state.sentinelLayer = addTileJsonLayer(scene.tileJson, state.map, "Sentinel-2 RGB · Microsoft Planetary Computer");
     state.falseColorLayer = addTileJsonLayer(scene.falseColorTileJson, state.falseColorMap, "Sentinel-2 NIR-R-G · Microsoft Planetary Computer");
@@ -1107,7 +1105,8 @@
       : `${state.activeYear}：场景预览 · ${highresLabel} · NDVI`;
     els.mapZoomHint.textContent = tileUrl ? `${state.activeYear} RGB · 10 m` : "仅底图";
     els.highresLayerStatus.textContent = formatHighresStatus(scene);
-    setAuxiliaryParameters(scene);
+    setAuxiliaryParameters(scene, "loading");
+    loadAuxiliaryTimeSeries(scene, lon, lat, state.activeYear, token);
   }
 
   function addTileJsonLayer(tileJson, map, attribution) {
@@ -1176,37 +1175,89 @@
     if (isLoading) setSceneStatus("检索影像…", "loading");
   }
 
-  function setAuxiliaryParameters(scene, mode = "ready") {
-    if (!els.auxStatus) return;
-    [els.auxNdvi, els.auxNdwi, els.auxNdbi, els.auxNdmi, els.auxB03, els.auxB04, els.auxB08, els.auxB11].forEach((element) => {
-      element.textContent = "—";
-    });
-    const setBias = (key, label, detail) => {
-      els.auxBiasCard.dataset.bias = key;
-      els.auxBias.textContent = label;
-      els.auxHint.textContent = detail;
+  async function loadAuxiliaryTimeSeries(scene, lon, lat, year, token) {
+    const row = getActiveRow();
+    const cacheKey = getAuxiliaryCacheKey(row, year, lon, lat);
+    const focusSample = buildIndexSample(scene?.item, scene?.pointValues);
+    const cachedSeries = state.auxSeriesCache.get(cacheKey);
+    if (cachedSeries) {
+      if (token === state.requestToken) renderAuxiliaryTimeSeries(cachedSeries, focusSample || cachedSeries.at(-1));
+      return;
+    }
+
+    try {
+      const items = await queryTimeSeriesItems(lon, lat, year, scene?.item);
+      const samples = await Promise.all(items.map(async (item) => {
+        const pointValues = item.id === scene?.item?.id
+          ? scene.pointValues
+          : await getOptionalJson(buildItemPointUrl(item.id, lon, lat, ["B03", "B04", "B08", "B11"]));
+        return buildIndexSample(item, pointValues);
+      }));
+      const series = samples
+        .filter(Boolean)
+        .sort((left, right) => left.timestamp - right.timestamp);
+      if (!series.length) throw new Error("No valid time-series samples");
+      state.auxSeriesCache.set(cacheKey, series);
+      if (token !== state.requestToken) return;
+      renderAuxiliaryTimeSeries(series, focusSample || series.at(-1));
+    } catch (error) {
+      if (token !== state.requestToken) return;
+      if (focusSample) {
+        renderAuxiliaryTimeSeries([focusSample], focusSample, "single");
+      } else {
+        setAuxiliaryParameters(null, "error");
+      }
+    }
+  }
+
+  async function queryTimeSeriesItems(lon, lat, year, currentItem = null) {
+    const basePayload = {
+      collections: ["sentinel-2-l2a"],
+      intersects: { type: "Point", coordinates: [lon, lat] },
+      datetime: `${year}-01-01T00:00:00Z/${year}-12-31T23:59:59Z`,
+      limit: 100,
+      query: { "eo:cloud_cover": { lt: 60 } },
     };
-    els.auxStatus.classList.remove("is-loading", "is-error", "is-ready");
-    if (mode === "loading") {
-      els.auxStatus.textContent = "读取像元…";
-      els.auxStatus.classList.add("is-loading");
-      setBias("loading", "读取中…", "正在读取当前点的 B03 / B04 / B08 / B11 光谱值。");
-      return;
+    let result = await postJson(STAC_SEARCH_URL, basePayload);
+    let features = Array.isArray(result.features) ? result.features : [];
+    if (features.length < 3) {
+      result = await postJson(STAC_SEARCH_URL, {
+        ...basePayload,
+        query: { "eo:cloud_cover": { lt: 90 } },
+      });
+      features = Array.isArray(result.features) ? result.features : [];
     }
-    if (mode === "error") {
-      els.auxStatus.textContent = "参数不可用";
-      els.auxStatus.classList.add("is-error");
-      setBias("error", "暂不可判定", "当前影像请求失败，参数暂不可用；请直接结合四窗影像判读。");
-      return;
-    }
-    const names = scene?.pointValues?.band_names || [];
-    const values = scene?.pointValues?.values || [];
-    if (!names.length || !values.length) {
-      els.auxStatus.textContent = "未返回参数";
-      els.auxStatus.classList.add("is-error");
-      setBias("error", "暂不可判定", "当前场景没有返回点位光谱值，请结合四窗影像判读。");
-      return;
-    }
+    return selectMonthlyScenes(features, year, currentItem);
+  }
+
+  function selectMonthlyScenes(features, year, currentItem = null) {
+    const candidates = [...features, currentItem].filter((item, index, items) => {
+      if (!item?.id) return false;
+      return items.findIndex((candidate) => candidate?.id === item.id) === index;
+    });
+    const monthly = new Map();
+    candidates.forEach((item) => {
+      const date = getSceneDate(item);
+      if (!date || date.getUTCFullYear() !== Number(year)) return;
+      const monthKey = `${year}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+      const existing = monthly.get(monthKey);
+      if (!existing || getCloudCover(item) < getCloudCover(existing)) monthly.set(monthKey, item);
+    });
+    return [...monthly.values()].sort((left, right) => {
+      const leftDate = getSceneDate(left)?.getTime() || 0;
+      const rightDate = getSceneDate(right)?.getTime() || 0;
+      return leftDate - rightDate;
+    });
+  }
+
+  function getAuxiliaryCacheKey(row, year, lon, lat) {
+    return `${row?.point_id || state.activeIndex}:${year}:${lon.toFixed(5)}:${lat.toFixed(5)}`;
+  }
+
+  function buildIndexSample(item, pointValues) {
+    const names = pointValues?.band_names || [];
+    const values = pointValues?.values || [];
+    if (!names.length || !values.length) return null;
     const bandValue = (band) => {
       const index = names.indexOf(`${band}_b1`);
       const value = Number(values[index]);
@@ -1221,29 +1272,138 @@
     const b04 = bandValue("B04");
     const b08 = bandValue("B08");
     const b11 = bandValue("B11");
+    const date = getSceneDate(item);
     const rawNdvi = normalizedDifference(b08, b04);
     const ndvi = rawNdvi === null ? null : clamp(rawNdvi, 0, 1);
     const ndwi = normalizedDifference(b03, b08);
     const ndbi = normalizedDifference(b11, b08);
-    const ndmi = normalizedDifference(b08, b11);
-    const formatMetric = (value) => value === null ? "—" : value.toFixed(2);
-    const formatBand = (value) => {
-      if (value === null) return "—";
-      return Math.abs(value) < 2 ? value.toFixed(3) : value.toFixed(0);
+    const lswi = normalizedDifference(b08, b11);
+    return {
+      itemId: item?.id || "",
+      date,
+      timestamp: date?.getTime() || 0,
+      dateLabel: date ? `${date.getUTCMonth() + 1}月${date.getUTCDate()}日` : "日期未知",
+      monthLabel: date ? `${date.getUTCMonth() + 1}月` : "—",
+      cloud: getCloudCover(item),
+      ndvi,
+      ndwi,
+      lswi,
+      ndbi,
+      ndmi: lswi,
+      bands: { b03, b04, b08, b11 },
     };
-    els.auxNdvi.textContent = formatMetric(ndvi);
-    els.auxNdwi.textContent = formatMetric(ndwi);
-    els.auxNdbi.textContent = formatMetric(ndbi);
-    els.auxNdmi.textContent = formatMetric(ndmi);
-    els.auxB03.textContent = formatBand(b03);
-    els.auxB04.textContent = formatBand(b04);
-    els.auxB08.textContent = formatBand(b08);
-    els.auxB11.textContent = formatBand(b11);
-    els.auxStatus.textContent = "像元参数已同步";
-    els.auxStatus.classList.add("is-ready");
+  }
 
-    const bias = inferAuxiliaryBias({ ndvi, ndwi, ndbi, ndmi });
-    setBias("ready", `偏向：${bias.label}`, bias.detail);
+  function setAuxiliaryParameters(scene, mode = "ready") {
+    if (!els.auxStatus) return;
+    els.auxStatus.classList.remove("is-loading", "is-error", "is-ready");
+    if (mode === "loading") {
+      els.auxStatus.textContent = "读取年度时序…";
+      els.auxStatus.classList.add("is-loading");
+      els.auxBiasCard.dataset.bias = "loading";
+      els.auxBias.textContent = "读取中…";
+      els.auxBiasCaption.textContent = "正在读取当前点全年 Sentinel-2 时相，曲线生成后给出直接偏向。";
+      els.auxChartYear.textContent = `${state.activeYear} 年`;
+      els.auxChartSummary.textContent = "NDVI / NDWI / LSWI 时序读取中…";
+      els.auxChart.innerHTML = "";
+      els.auxChartEmpty.textContent = "正在读取当前点年度时序…";
+      els.auxChartEmpty.hidden = false;
+      return;
+    }
+    if (mode === "error") {
+      els.auxStatus.textContent = "参数不可用";
+      els.auxStatus.classList.add("is-error");
+      els.auxBiasCard.dataset.bias = "error";
+      els.auxBias.textContent = "暂不可判定";
+      els.auxBiasCaption.textContent = "当前年份没有返回有效时序参数，请结合四窗影像选择“不确定”或直接判读。";
+      els.auxChart.innerHTML = "";
+      els.auxChartEmpty.textContent = "当前年份暂无有效时序数据。";
+      els.auxChartEmpty.hidden = false;
+      els.auxChartSummary.textContent = "时序参数暂不可用";
+      return;
+    }
+    const sample = buildIndexSample(scene?.item, scene?.pointValues);
+    if (!sample) {
+      setAuxiliaryParameters(null, "error");
+      return;
+    }
+    renderAuxiliaryTimeSeries([sample], sample, "single");
+  }
+
+  function renderAuxiliaryTimeSeries(series, focusSample = null, mode = "ready") {
+    const validSeries = series.filter(Boolean).sort((left, right) => left.timestamp - right.timestamp);
+    if (!validSeries.length) {
+      setAuxiliaryParameters(null, "error");
+      return;
+    }
+    els.auxStatus.classList.remove("is-loading", "is-error", "is-ready");
+    els.auxStatus.textContent = mode === "single" ? "单景参数" : "时序已同步";
+    els.auxStatus.classList.add(mode === "single" ? "is-loading" : "is-ready");
+    els.auxChartYear.textContent = `${state.activeYear} 年 · ${validSeries.length} 个时相`;
+    els.auxChartEmpty.hidden = true;
+    renderAuxiliaryChart(validSeries);
+
+    const sample = focusSample || validSeries.at(-1);
+    const bias = inferAuxiliaryBias(sample);
+    els.auxBiasCard.dataset.bias = mode === "single" ? "loading" : "ready";
+    els.auxBias.textContent = `偏向：${bias.label}`;
+    els.auxBiasCaption.textContent = `${sample.dateLabel} 当前场景 · NDVI ${formatIndex(sample.ndvi)} · NDWI ${formatIndex(sample.ndwi)} · LSWI ${formatIndex(sample.lswi)} · NDBI ${formatIndex(sample.ndbi)}`;
+    const dates = `${validSeries[0].dateLabel}—${validSeries.at(-1).dateLabel}`;
+    els.auxChartSummary.textContent = `${dates} · ${validSeries.length} 个有效时相 · NDBI 保留为当前场景建设用地参考`;
+    els.auxHint.textContent = "NDVI=(B08-B04)/(B08+B04)，显示 0–1 · NDWI=(B03-B08)/(B03+B08) · LSWI=(B08-B11)/(B08+B11)";
+  }
+
+  function renderAuxiliaryChart(series) {
+    if (!els.auxChart) return;
+    const width = 640;
+    const height = 238;
+    const margin = { top: 15, right: 12, bottom: 36, left: 35 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+    const x = (index) => series.length === 1
+      ? margin.left + plotWidth / 2
+      : margin.left + (index / (series.length - 1)) * plotWidth;
+    const y = (value) => margin.top + ((1 - value) / 2) * plotHeight;
+    const yTicks = [1, 0.5, 0, -0.5, -1];
+    const configs = [
+      { key: "ndvi", className: "ndvi", label: "NDVI" },
+      { key: "ndwi", className: "ndwi", label: "NDWI" },
+      { key: "lswi", className: "lswi", label: "LSWI" },
+    ];
+    const pathFor = (key) => {
+      let path = "";
+      let active = false;
+      series.forEach((sample, index) => {
+        const value = sample[key];
+        if (!Number.isFinite(value)) {
+          active = false;
+          return;
+        }
+        path += `${active ? " L" : "M"}${x(index).toFixed(2)} ${y(value).toFixed(2)}`;
+        active = true;
+      });
+      return path;
+    };
+    const labelStep = Math.max(1, Math.ceil(series.length / 6));
+    const gridMarkup = yTicks.map((tick) => `
+      <line class="aux-chart-grid${tick === 0 ? " is-zero" : ""}" x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}"></line>
+      <text class="aux-chart-axis-label" x="${margin.left - 8}" y="${y(tick) + 3}" text-anchor="end">${tick.toFixed(tick === 0 ? 0 : 1)}</text>`).join("");
+    const xLabels = series.map((sample, index) => {
+      if (index % labelStep !== 0 && index !== series.length - 1) return "";
+      return `<text class="aux-chart-axis-label aux-chart-date-label" x="${x(index)}" y="${height - 12}" text-anchor="middle">${escapeHtml(sample.monthLabel)}</text>`;
+    }).join("");
+    const lines = configs.map((config) => `<path class="aux-chart-line aux-chart-line-${config.className}" d="${pathFor(config.key)}"></path>`).join("");
+    const points = configs.map((config) => series.map((sample, index) => {
+      const value = sample[config.key];
+      if (!Number.isFinite(value)) return "";
+      const details = `${sample.dateLabel} · ${config.label} ${formatIndex(value)} · 云量 ${sample.cloud.toFixed(1)}%`;
+      return `<circle class="aux-chart-point aux-chart-point-${config.className}" cx="${x(index)}" cy="${y(value)}" r="3.3"><title>${escapeHtml(details)}</title></circle>`;
+    }).join("")).join("");
+    els.auxChart.innerHTML = `${gridMarkup}${xLabels}<line class="aux-chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>${lines}${points}`;
+  }
+
+  function formatIndex(value) {
+    return Number.isFinite(value) ? value.toFixed(2) : "—";
   }
 
   function inferAuxiliaryBias({ ndvi, ndwi, ndbi, ndmi }) {
