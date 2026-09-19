@@ -1341,7 +1341,7 @@
     els.auxStatus.classList.add(mode === "single" ? "is-loading" : "is-ready");
     els.auxChartYear.textContent = `${state.activeYear} 年 · ${validSeries.length} 个时相`;
     els.auxChartEmpty.hidden = true;
-    renderAuxiliaryChart(validSeries);
+    const chartDomain = renderAuxiliaryChart(validSeries);
 
     const sample = focusSample || validSeries.at(-1);
     const bias = inferAuxiliaryBias(sample);
@@ -1349,22 +1349,42 @@
     els.auxBias.textContent = `偏向：${bias.label}`;
     els.auxBiasCaption.textContent = `${sample.dateLabel} 当前场景 · NDVI ${formatIndex(sample.ndvi)} · NDWI ${formatIndex(sample.ndwi)} · LSWI ${formatIndex(sample.lswi)} · NDBI ${formatIndex(sample.ndbi)}`;
     const dates = `${validSeries[0].dateLabel}—${validSeries.at(-1).dateLabel}`;
-    els.auxChartSummary.textContent = `${dates} · ${validSeries.length} 个有效时相 · NDBI 保留为当前场景建设用地参考`;
+    els.auxChartSummary.textContent = `${dates} · 纵轴自动 ${formatAxisValue(chartDomain.min)}～${formatAxisValue(chartDomain.max)} · ${validSeries.length} 个有效时相 · NDBI 保留为当前场景建设用地参考`;
     els.auxHint.textContent = "NDVI=(B08-B04)/(B08+B04)，显示 0–1 · NDWI=(B03-B08)/(B03+B08) · LSWI=(B08-B11)/(B08+B11)";
   }
 
   function renderAuxiliaryChart(series) {
-    if (!els.auxChart) return;
+    if (!els.auxChart) return { min: -1, max: 1 };
     const width = 640;
     const height = 238;
     const margin = { top: 15, right: 12, bottom: 36, left: 35 };
     const plotWidth = width - margin.left - margin.right;
     const plotHeight = height - margin.top - margin.bottom;
+    const indexValues = series
+      .flatMap((sample) => [sample.ndvi, sample.ndwi, sample.lswi])
+      .filter((value) => Number.isFinite(value));
+    const rawMin = Math.min(...indexValues);
+    const rawMax = Math.max(...indexValues);
+    const rawSpan = Math.max(rawMax - rawMin, 0.001);
+    const padding = Math.max(rawSpan * 0.18, 0.04);
+    let domainMin = Math.max(-1, rawMin - padding);
+    let domainMax = Math.min(1, rawMax + padding);
+    const minimumSpan = 0.2;
+    if (domainMax - domainMin < minimumSpan) {
+      const center = (rawMin + rawMax) / 2;
+      domainMin = Math.max(-1, center - minimumSpan / 2);
+      domainMax = Math.min(1, center + minimumSpan / 2);
+      if (domainMax - domainMin < minimumSpan) {
+        if (domainMin <= -1) domainMax = Math.min(1, domainMin + minimumSpan);
+        else domainMin = Math.max(-1, domainMax - minimumSpan);
+      }
+    }
+    const domainSpan = domainMax - domainMin;
     const x = (index) => series.length === 1
       ? margin.left + plotWidth / 2
       : margin.left + (index / (series.length - 1)) * plotWidth;
-    const y = (value) => margin.top + ((1 - value) / 2) * plotHeight;
-    const yTicks = [1, 0.5, 0, -0.5, -1];
+    const y = (value) => margin.top + ((domainMax - value) / domainSpan) * plotHeight;
+    const yTicks = Array.from({ length: 5 }, (_, index) => domainMin + (domainSpan * (4 - index)) / 4);
     const configs = [
       { key: "ndvi", className: "ndvi", label: "NDVI" },
       { key: "ndwi", className: "ndwi", label: "NDWI" },
@@ -1386,8 +1406,11 @@
     };
     const labelStep = Math.max(1, Math.ceil(series.length / 6));
     const gridMarkup = yTicks.map((tick) => `
-      <line class="aux-chart-grid${tick === 0 ? " is-zero" : ""}" x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}"></line>
-      <text class="aux-chart-axis-label" x="${margin.left - 8}" y="${y(tick) + 3}" text-anchor="end">${tick.toFixed(tick === 0 ? 0 : 1)}</text>`).join("");
+      <line class="aux-chart-grid${Math.abs(tick) < 0.0001 ? " is-zero" : ""}" x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}"></line>
+      <text class="aux-chart-axis-label" x="${margin.left - 8}" y="${y(tick) + 3}" text-anchor="end">${formatAxisValue(tick)}</text>`).join("");
+    const zeroMarkup = domainMin < 0 && domainMax > 0 && !yTicks.some((tick) => Math.abs(tick) < 0.0001)
+      ? `<line class="aux-chart-grid is-zero" x1="${margin.left}" y1="${y(0)}" x2="${width - margin.right}" y2="${y(0)}"></line>`
+      : "";
     const xLabels = series.map((sample, index) => {
       if (index % labelStep !== 0 && index !== series.length - 1) return "";
       return `<text class="aux-chart-axis-label aux-chart-date-label" x="${x(index)}" y="${height - 12}" text-anchor="middle">${escapeHtml(sample.monthLabel)}</text>`;
@@ -1397,13 +1420,19 @@
       const value = sample[config.key];
       if (!Number.isFinite(value)) return "";
       const details = `${sample.dateLabel} · ${config.label} ${formatIndex(value)} · 云量 ${sample.cloud.toFixed(1)}%`;
-      return `<circle class="aux-chart-point aux-chart-point-${config.className}" cx="${x(index)}" cy="${y(value)}" r="3.3"><title>${escapeHtml(details)}</title></circle>`;
+      return `<circle class="aux-chart-point aux-chart-point-${config.className}" cx="${x(index)}" cy="${y(value)}" r="4.2"><title>${escapeHtml(details)}</title></circle>`;
     }).join("")).join("");
-    els.auxChart.innerHTML = `${gridMarkup}${xLabels}<line class="aux-chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>${lines}${points}`;
+    els.auxChart.innerHTML = `${gridMarkup}${zeroMarkup}${xLabels}<line class="aux-chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>${lines}${points}`;
+    return { min: domainMin, max: domainMax };
   }
 
   function formatIndex(value) {
     return Number.isFinite(value) ? value.toFixed(2) : "—";
+  }
+
+  function formatAxisValue(value) {
+    if (!Number.isFinite(value) || Math.abs(value) < 0.005) return "0";
+    return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   }
 
   function inferAuxiliaryBias({ ndvi, ndwi, ndbi, ndmi }) {
