@@ -3505,3 +3505,27 @@ kbd {
     margin: 4px 4px 0;
   }
 }
+
+/* Year completion cue: labeled years stay visibly green even when not selected. */
+.year-tab.is-done:not(.is-active) {
+  color: var(--mint-bright);
+  border-color: rgba(154, 230, 200, 0.34);
+  background: rgba(154, 230, 200, 0.09);
+  box-shadow: inset 0 -2px 0 var(--mint);
+}
+
+.year-tab.is-done:not(.is-active) .year-tab-year {
+  color: var(--mint-bright);
+}
+
+.year-tab.is-done:not(.is-active)::after {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mint);
+  box-shadow: 0 0 8px rgba(154, 230, 200, 0.7);
+  content: "";
+}
