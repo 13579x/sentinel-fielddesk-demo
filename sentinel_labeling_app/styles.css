@@ -3391,3 +3391,117 @@ kbd {
     font-size: 7px;
   }
 }
+
+/* Short desktop viewports: put the land-use choice first and keep it in view. */
+@media (min-width: 761px) and (max-height: 760px) {
+  .inspector {
+    padding: 5px 8px 4px;
+    overflow: hidden;
+  }
+
+  .inspector-topline {
+    order: 0;
+  }
+
+  .interpretation-context {
+    order: 1;
+    margin-top: 3px;
+    padding: 4px 6px;
+  }
+
+  .category-section {
+    order: 2;
+    padding: 4px 0;
+  }
+
+  .inspector .aux-panel {
+    order: 3;
+    margin-top: 3px;
+    padding: 3px 4px 2px;
+  }
+
+  .flag-section {
+    order: 4;
+  }
+
+  .text-section {
+    order: 5;
+  }
+
+  .inspector-footer {
+    order: 6;
+  }
+
+  .inspector .category-grid {
+    margin-top: 2px;
+  }
+
+  .inspector .aux-bias-card {
+    margin-top: 2px;
+    padding: 3px 5px 2px;
+  }
+
+  .inspector .aux-chart-card {
+    margin-top: 2px;
+    padding: 3px 3px 2px;
+  }
+
+  .inspector .aux-chart-wrap,
+  .inspector #auxChart {
+    min-height: 102px;
+    height: 102px;
+  }
+
+  .inspector .aux-chart-summary {
+    min-height: 10px;
+    font-size: 5px;
+  }
+
+  .inspector .flag-section,
+  .inspector .text-section {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .inspector .inspector-footer {
+    padding-top: 4px;
+  }
+}
+
+/* Desktop map focus: remove duplicate metadata so the four synchronized maps get the height. */
+@media (min-width: 761px) {
+  .active-point-heading,
+  .scene-status,
+  .map-sync-bar,
+  .scene-strip,
+  .history-band,
+  .app-footer {
+    display: none;
+  }
+
+  .map-toolbar {
+    display: none;
+  }
+
+  .map-toolbar-actions {
+    margin-left: auto;
+  }
+
+  .year-strip {
+    gap: 3px;
+    padding: 4px 8px;
+  }
+
+  .year-tab {
+    min-height: 24px;
+    padding: 4px 3px 3px;
+  }
+
+  .year-tab-status {
+    display: none;
+  }
+
+  .map-card {
+    margin: 4px 4px 0;
+  }
+}
