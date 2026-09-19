@@ -40,6 +40,32 @@
   padding: 0 2px;
 }
 
+.aux-chart-toolbar-right {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.chart-expand-button {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  color: var(--mint-bright);
+  border: 1px solid rgba(154, 230, 200, 0.32);
+  border-radius: 5px;
+  background: rgba(154, 230, 200, 0.08);
+  font-family: var(--mono);
+  font-size: 7px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.chart-expand-button:hover {
+  border-color: var(--mint);
+  background: rgba(154, 230, 200, 0.18);
+}
+
 .aux-chart-year {
   color: var(--text-soft);
   font-family: var(--mono);
@@ -125,6 +151,20 @@
   fill: var(--text-soft);
   font-size: 11px;
 }
+
+.aux-chart-line-label {
+  paint-order: stroke;
+  stroke: rgba(8, 21, 28, 0.92);
+  stroke-linejoin: round;
+  stroke-width: 3;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.aux-chart-line-label-ndvi { fill: #ef6a4b; }
+.aux-chart-line-label-ndwi { fill: #ff9a19; }
+.aux-chart-line-label-lswi { fill: #4f83d9; }
 
 .aux-chart-line {
   fill: none;
@@ -3580,4 +3620,120 @@ kbd {
     min-height: 164px;
     height: 164px;
   }
+}
+
+/* Enlarged chart viewer: keep the normal workspace compact while making the profile readable on demand. */
+.chart-modal[hidden] {
+  display: none;
+}
+
+.chart-modal {
+  position: fixed;
+  z-index: 2200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.chart-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 10, 15, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.chart-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(980px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 18px 20px 16px;
+  border: 1px solid rgba(154, 230, 200, 0.3);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(12, 33, 40, 0.98), rgba(7, 18, 25, 0.98));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.56);
+}
+
+.chart-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.chart-modal-header h2 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 19px;
+}
+
+.chart-modal-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--mint-bright);
+  background: rgba(154, 230, 200, 0.08);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.chart-modal-close:hover {
+  border-color: var(--mint);
+  background: rgba(154, 230, 200, 0.18);
+}
+
+.chart-modal-meta {
+  margin-top: 12px;
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.chart-modal-chart-wrap {
+  margin-top: 12px;
+  padding: 12px 14px 8px;
+  border: 1px solid rgba(182, 218, 210, 0.18);
+  border-radius: 10px;
+  background: rgba(4, 14, 20, 0.72);
+}
+
+.chart-modal-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 360px;
+}
+
+.chart-modal-svg .aux-chart-axis-label {
+  font-size: 14px;
+}
+
+.chart-modal-svg .aux-chart-date-label {
+  font-size: 13px;
+}
+
+.chart-modal-svg .aux-chart-line {
+  stroke-width: 5.2;
+}
+
+.chart-modal-svg .aux-chart-point {
+  stroke-width: 2.2;
+}
+
+.chart-modal-svg .aux-chart-line-label {
+  font-size: 16px;
+  stroke-width: 3.5;
+}
+
+.chart-modal-summary {
+  margin-top: 9px;
+  color: var(--text-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
 }

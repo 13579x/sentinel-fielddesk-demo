@@ -292,10 +292,13 @@
             <div class="aux-chart-card">
               <div class="aux-chart-toolbar">
                 <span class="aux-chart-year" id="auxChartYear">2025 年</span>
-                <div class="aux-chart-legend" aria-label="指数图例">
-                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndvi"></i>NDVI</span>
-                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndwi"></i>NDWI</span>
-                  <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-lswi"></i>LSWI</span>
+                <div class="aux-chart-toolbar-right">
+                  <div class="aux-chart-legend" aria-label="指数图例">
+                    <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndvi"></i>NDVI</span>
+                    <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-ndwi"></i>NDWI</span>
+                    <span class="aux-legend-item"><i class="aux-legend-dot aux-legend-lswi"></i>LSWI</span>
+                  </div>
+                  <button class="chart-expand-button" id="expandChartButton" type="button" title="放大时序曲线">↗ 放大</button>
                 </div>
               </div>
               <div class="aux-chart-wrap">
@@ -353,6 +356,24 @@
         <span>本地标注自动保存 · 原始 CSV 不会被覆盖</span>
         <button class="footer-reset" id="clearLocalButton" type="button">清除本机标注缓存</button>
       </footer>
+    </div>
+
+    <div class="chart-modal" id="chartModal" hidden>
+      <div class="chart-modal-backdrop" data-chart-close></div>
+      <section class="chart-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chartModalTitle">
+        <div class="chart-modal-header">
+          <div>
+            <div class="section-kicker">SEASONAL PROFILE / ENLARGED</div>
+            <h2 id="chartModalTitle">指数时序曲线</h2>
+          </div>
+          <button class="chart-modal-close" id="closeChartButton" type="button" aria-label="关闭放大曲线">×</button>
+        </div>
+        <div class="chart-modal-meta" id="chartModalYear">2025 年</div>
+        <div class="chart-modal-chart-wrap">
+          <svg class="chart-modal-svg" id="chartModalSvg" viewBox="0 0 640 238" role="img" aria-label="放大的当前点指数时序曲线"></svg>
+        </div>
+        <div class="chart-modal-summary" id="chartModalSummary"></div>
+      </section>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

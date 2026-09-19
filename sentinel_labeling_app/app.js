@@ -185,6 +185,12 @@
       "auxChart",
       "auxChartEmpty",
       "auxChartSummary",
+      "expandChartButton",
+      "chartModal",
+      "chartModalSvg",
+      "chartModalYear",
+      "chartModalSummary",
+      "closeChartButton",
       "auxHint",
       "mapCoordinates",
       "mapSource",
@@ -262,6 +268,11 @@
     });
     els.previousButton.addEventListener("click", () => goRelative(-1, false));
     els.nextButton.addEventListener("click", () => goRelative(1, state.unlabeledOnly));
+    els.expandChartButton.addEventListener("click", openChartModal);
+    els.closeChartButton.addEventListener("click", closeChartModal);
+    els.chartModal.addEventListener("click", (event) => {
+      if (event.target.matches("[data-chart-close]")) closeChartModal();
+    });
     els.toggleMarkerButton.addEventListener("click", () => setMarkersVisible(!state.markersVisible));
     els.toggleAllPointsButton.addEventListener("click", () => setAllPointsVisible(!state.allPointsVisible));
     els.recenterButton.addEventListener("click", recenterMap);
@@ -724,6 +735,28 @@
     setActiveYear(Number(button.dataset.year));
   }
 
+  function openChartModal() {
+    if (!els.chartModal || !els.chartModalSvg) return;
+    els.chartModal.hidden = false;
+    document.body.classList.add("chart-modal-open");
+    syncChartModal();
+    els.closeChartButton?.focus();
+  }
+
+  function closeChartModal() {
+    if (!els.chartModal) return;
+    els.chartModal.hidden = true;
+    document.body.classList.remove("chart-modal-open");
+    els.expandChartButton?.focus();
+  }
+
+  function syncChartModal() {
+    if (!els.chartModal || els.chartModal.hidden || !els.chartModalSvg || !els.auxChart) return;
+    els.chartModalSvg.innerHTML = els.auxChart.innerHTML;
+    els.chartModalYear.textContent = els.auxChartYear.textContent;
+    els.chartModalSummary.textContent = els.auxChartSummary.textContent;
+  }
+
   function setActiveYear(year) {
     if (!YEARS.includes(year)) return;
     state.activeYear = year;
@@ -767,6 +800,11 @@
   }
 
   function handleKeyboardShortcut(event) {
+    if (event.key === "Escape" && els.chartModal && !els.chartModal.hidden) {
+      event.preventDefault();
+      closeChartModal();
+      return;
+    }
     const tagName = event.target?.tagName?.toLowerCase();
     const isTyping = tagName === "input" || tagName === "textarea" || tagName === "select" || event.target?.isContentEditable;
     if (isTyping) {
@@ -1357,7 +1395,7 @@
     if (!els.auxChart) return { min: -1, max: 1 };
     const width = 640;
     const height = 238;
-    const margin = { top: 15, right: 12, bottom: 36, left: 35 };
+    const margin = { top: 15, right: 12, bottom: 36, left: 50 };
     const plotWidth = width - margin.left - margin.right;
     const plotHeight = height - margin.top - margin.bottom;
     const indexValues = series
@@ -1420,9 +1458,24 @@
       const value = sample[config.key];
       if (!Number.isFinite(value)) return "";
       const details = `${sample.dateLabel} · ${config.label} ${formatIndex(value)} · 云量 ${sample.cloud.toFixed(1)}%`;
-      return `<circle class="aux-chart-point aux-chart-point-${config.className}" cx="${x(index)}" cy="${y(value)}" r="4.2"><title>${escapeHtml(details)}</title></circle>`;
+      return `<circle class="aux-chart-point aux-chart-point-${config.className}" cx="${x(index)}" cy="${y(value)}" r="6.2"><title>${escapeHtml(details)}</title></circle>`;
     }).join("")).join("");
-    els.auxChart.innerHTML = `${gridMarkup}${zeroMarkup}${xLabels}<line class="aux-chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>${lines}${points}`;
+    const labelOffsets = { ndvi: -26, ndwi: 22, lswi: 0 };
+    const lineLabels = configs.map((config) => {
+      let lastIndex = -1;
+      for (let index = series.length - 1; index >= 0; index -= 1) {
+        if (Number.isFinite(series[index][config.key])) {
+          lastIndex = index;
+          break;
+        }
+      }
+      if (lastIndex < 0) return "";
+      const value = series[lastIndex][config.key];
+      const labelY = Math.max(margin.top + 10, Math.min(height - margin.bottom - 4, y(value) + labelOffsets[config.className]));
+      return `<text class="aux-chart-line-label aux-chart-line-label-${config.className}" x="${Math.max(margin.left + 24, x(lastIndex) - 7)}" y="${labelY}" text-anchor="end">${config.label}</text>`;
+    }).join("");
+    els.auxChart.innerHTML = `${gridMarkup}${zeroMarkup}${xLabels}<line class="aux-chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>${lines}${points}${lineLabels}`;
+    syncChartModal();
     return { min: domainMin, max: domainMax };
   }
 
